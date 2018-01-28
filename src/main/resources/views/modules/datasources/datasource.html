@@ -22,7 +22,7 @@
 </head>
 <body>
 <div id="rrapp" v-cloak>
-	<div v-show="showList">
+	<div v-show="showList == 0">
 		<div class="grid-btn">
 			<a class="btn btn-danger" @click="addConfig"><i class="fa fa-sun-o"></i>&nbsp;添加数据源</a>
 			<!--<a class="btn btn-primary" id="upload"><i class="fa fa-plus"></i>&nbsp;上传文件</a>-->
@@ -32,7 +32,7 @@
 	    <div id="jqGridPager"></div>
     </div>
     
-    <div v-show="!showList" class="panel panel-default">
+    <div v-show="showList == 1" class="panel panel-default">
 		<div class="panel-heading">{{title}}</div>
 		<form class="form-horizontal">
 			<div class="form-group">
@@ -93,10 +93,20 @@
 				<div class="col-sm-2 control-label"></div>
 				<input type="button" class="btn btn-warning" @click="reload" value="返回"/>
 				&nbsp;&nbsp;
-				<input type="button" class="btn btn-primary" @click="saveOrUpdate" value="下一步"/>
+				<input type="button" class="btn btn-primary fa fa-forward" @click="getFileStructure" value="下一步"/>
 
 			</div>
 		</form>
+	</div>
+
+	<div v-show="showList == 2" >
+		<div class="grid-btn">
+			<a class="btn btn-danger" @click="getShowListOne"><i class="fa fa-backward"></i>&nbsp;上一步</a>
+			<!--<a class="btn btn-primary" id="upload"><i class="fa fa-plus"></i>&nbsp;上传文件</a>-->
+			<a class="btn btn-primary" @click="saveDataSource"><i class="fa fa-trash-o"></i>&nbsp;保存</a>
+		</div>
+		<table id="jqGrid1"></table>
+		<div id="jqGridPager1"></div>
 	</div>
 </div>
 

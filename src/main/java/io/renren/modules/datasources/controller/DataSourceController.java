@@ -7,6 +7,9 @@ import io.renren.common.validator.ValidatorUtils;
 import io.renren.common.validator.group.AliyunGroup;
 import io.renren.common.validator.group.QcloudGroup;
 import io.renren.common.validator.group.QiniuGroup;
+import io.renren.datasources.annotation.DataSource;
+import io.renren.modules.datasources.model.ColumnNameType;
+import io.renren.modules.datasources.model.ColumnType;
 import io.renren.modules.datasources.model.DataSourceEntity;
 import io.renren.modules.datasources.model.DataSourceType;
 import io.renren.modules.datasources.service.DataSourceService;
@@ -17,17 +20,18 @@ import io.renren.modules.oss.entity.SysOssEntity;
 import io.renren.modules.sys.service.SysConfigService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang.math.NumberUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.nio.charset.Charset;
+import java.util.*;
 
 
 /**
@@ -40,6 +44,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/datasource")
 public class DataSourceController {
+	private final static Logger log = LoggerFactory.getLogger(DataSourceController.class);
 	private final static String KEY =ConfigConstant.DATASOURCE_STORAGE_CONFIG_KEY;
 	@Value("${upload.uploadDir}")
 	private String uploadDir;
@@ -148,6 +153,81 @@ public class DataSourceController {
 //		return R.ok();
 //	}
 
+	@RequestMapping("/getFileStructure")
+	@RequiresPermissions("datasource:all")
+	public R getFileStructure(@RequestBody DataSourceTypeConfig config) throws Exception{
+		// 1. get file
+		String file = redisUtils.get(DigestUtils.md5Hex(
+				ShiroUtils.getUserEntity().getUserId()+config.getFilePath()));
+		// 2. read file data
+		List<String> data = FileUtils.readLines(new File(file), Charset.forName("utf-8"));
+		if(data == null || data.size()<0){
+			return R.error("empty data!");
+		}
+		// 3. resolve file column
+//		int size = getSize(data.get(0),splitter);
+////		String[] dataArr = data.subList(0,2).toArray(new String[0]);
+//		String[][] dataArr = new String[2][size];
+		List<ColumnNameType> columnTypes = getColumnType(data.get(0),config.getSplitter());
+		log.info("data: {}",columnTypes);
+		return R.ok().put("columnTypes",columnTypes);
+	}
+
+	private List<ColumnNameType> getColumnType(String line, String splitter) {
+		List<ColumnNameType> columnType = new ArrayList<>();
+		String[] data = line.split(splitter,-1);
+		ColumnNameType columnNameType = null;
+		int i=1;
+		for(String d:data){
+			columnNameType = new ColumnNameType();
+			columnNameType.setId(i);
+			columnNameType.setColName("col"+ i++);
+			columnNameType.setColType(getType(d));
+			columnType.add(columnNameType);
+		}
+		return columnType;
+	}
+
+	/**
+	 * 获得列类型
+	 * @param colVal
+	 * @return
+	 */
+	private String getType(String colVal) {
+		if(NumberUtils.isNumber(colVal)){
+			if(NumberUtils.isDigits(colVal)){
+				return ColumnType.INT.name();
+			}
+			return ColumnType.DOUBLE.name();
+		}
+		return ColumnType.VARCHAR.name();
+	}
+
+	/**
+	 * 获取s中splitter的个数
+	 * @param s
+	 * @param splitter
+	 * @return
+	 */
+	private int getSize(String s, String splitter) {
+		char c = splitter.charAt(0);
+		int size =0;
+		for(char a : s.toCharArray()){
+			if(a == c) size++;
+		}
+		return size;
+	}
+
+	@RequestMapping("/getRDBMSStructure")
+	@RequiresPermissions("datasource:all")
+	public R getRDBMSStructure(@RequestParam String driver,
+							  @RequestParam String url,
+							   @RequestParam String user,
+							   @RequestParam String password,
+							   @RequestParam String sql) throws Exception{
+		//TODO 待实现
+		return R.ok();
+	}
 
 	/**
 	 * 上传文件
