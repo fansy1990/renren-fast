@@ -11,4 +11,5 @@ public class ConfigConstant {
      * 云存储配置KEY
      */
     public final static String CLOUD_STORAGE_CONFIG_KEY = "CLOUD_STORAGE_CONFIG_KEY";
+    public final static String DATASOURCE_STORAGE_CONFIG_KEY = "DATASOURCE_STORAGE_CONFIG_KEY";
 }

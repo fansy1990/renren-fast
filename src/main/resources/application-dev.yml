@@ -36,3 +36,7 @@ spring:
                 wall:
                     config:
                         multi-statement-allow: true
+    jpa:
+        show-sql : false
+        hibernate:
+            ddl-auto: update

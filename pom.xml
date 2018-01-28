@@ -34,6 +34,8 @@
 		<aliyun.oss.version>2.5.0</aliyun.oss.version>
 		<qcloud.cos.version>4.4</qcloud.cos.version>
 
+		<weka.version>3.8.2</weka.version>
+
 		<!--wagon plugin 配置-->
 		<service-path>/work/renren</service-path>
 		<pack-name>${artifactId}-${version}.jar</pack-name>
@@ -43,6 +45,18 @@
 	</properties>
 
 	<dependencies>
+
+		<!-- weka -->
+		<dependency>
+			<groupId>nz.ac.waikato.cms.weka</groupId>
+			<artifactId>weka-stable</artifactId>
+			<version>${weka.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -163,6 +177,10 @@
 				<exclusion>
 					<groupId>org.slf4j</groupId>
 					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+				<exclusion>
+					<artifactId>json</artifactId>
+					<groupId>org.json</groupId>
 				</exclusion>
 			</exclusions>
 		</dependency>

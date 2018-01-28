@@ -6,17 +6,18 @@ import io.renren.modules.sys.service.SysUserTokenService;
 import io.renren.common.utils.R;
 import io.renren.modules.sys.oauth2.TokenGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
 
-
+//@Primary
 @Service("sysUserTokenService")
 public class SysUserTokenServiceImpl implements SysUserTokenService {
 	@Autowired
 	private SysUserTokenDao sysUserTokenDao;
-	//12小时后过期
-	private final static int EXPIRE = 3600 * 12;
+	//(12小时 * 2 * 7) 一周后过期
+	private final static int EXPIRE = 3600 * 12 * 2 *7;
 
 	@Override
 	public SysUserTokenEntity queryByUserId(Long userId) {
