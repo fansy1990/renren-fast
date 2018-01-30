@@ -1,22 +1,12 @@
 package io.renren.modules.datasources.controller;
 
-import com.google.gson.Gson;
 import io.renren.common.exception.RRException;
 import io.renren.common.utils.*;
-import io.renren.common.validator.ValidatorUtils;
-import io.renren.common.validator.group.AliyunGroup;
-import io.renren.common.validator.group.QcloudGroup;
-import io.renren.common.validator.group.QiniuGroup;
-import io.renren.datasources.annotation.DataSource;
-import io.renren.modules.datasources.model.ColumnNameType;
+import io.renren.modules.datasources.model.SimpleColumn;
 import io.renren.modules.datasources.model.ColumnType;
 import io.renren.modules.datasources.model.DataSourceEntity;
-import io.renren.modules.datasources.model.DataSourceType;
+import io.renren.modules.datasources.service.DBService;
 import io.renren.modules.datasources.service.DataSourceService;
-import io.renren.modules.datasources.type.DataSourceTypeConfig;
-import io.renren.modules.oss.cloud.CloudStorageConfig;
-import io.renren.modules.oss.cloud.OSSFactory;
-import io.renren.modules.oss.entity.SysOssEntity;
 import io.renren.modules.sys.service.SysConfigService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
@@ -26,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -57,6 +48,9 @@ public class DataSourceController {
 
 	@Autowired
 	private RedisUtils redisUtils;
+
+	@Autowired
+	private DBService dbService;
 	
 	/**
 	 * 列表
@@ -116,14 +110,16 @@ public class DataSourceController {
 
 
 	/**
-	 * 云存储配置信息
+	 * 初始化数据源
 	 */
-	@RequestMapping("/config")
+	@RequestMapping("/initDataSourceEntity")
 	@RequiresPermissions("datasource:all")
-	public R config(){
-		DataSourceTypeConfig config = sysConfigService.getConfigObject(KEY, DataSourceTypeConfig.class);
-
-		return R.ok().put("config", config);
+	public R initDataSourceEntity(){
+//		DataSourceTypeConfig config = sysConfigService.getConfigObject(KEY, DataSourceTypeConfig.class);
+		DataSourceEntity dataSourceEntity = new DataSourceEntity();
+		dataSourceEntity.setOwner(ShiroUtils.getUserEntity().getUsername());
+		dataSourceEntity.setType(1);// 主要是设置这个值
+		return R.ok().put("dsEntity", dataSourceEntity);
 	}
 
 
@@ -153,33 +149,66 @@ public class DataSourceController {
 //		return R.ok();
 //	}
 
-	@RequestMapping("/getFileStructure")
+	@RequestMapping("/saveDataSource")
 	@RequiresPermissions("datasource:all")
-	public R getFileStructure(@RequestBody DataSourceTypeConfig config) throws Exception{
-		// 1. get file
-		String file = redisUtils.get(DigestUtils.md5Hex(
-				ShiroUtils.getUserEntity().getUserId()+config.getFilePath()));
-		// 2. read file data
-		List<String> data = FileUtils.readLines(new File(file), Charset.forName("utf-8"));
-		if(data == null || data.size()<0){
-			return R.error("empty data!");
+	public R saveDataSource(@RequestBody DataSourceEntity dataSourceEntity){
+		String realTableName = dataSourceEntity.getOwner()+"_";
+
+		if(dataSourceEntity.getType() == 1){// 文本
+			log.info("保存文本数据源：");
+			realTableName+= DigestUtils.md5Hex(dataSourceEntity.getFilePath());
+			String realFilePath = redisUtils.get(DigestUtils.md5Hex(
+					ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath()));
+			// 1. 创建表
+			dbService.create(realTableName,dataSourceEntity.getColumnList());
+
+			// 2. 导入数据
+			log.info("importing data ...");
+
+		}else{
+			log.info("保存RDBMS数据源：");
+			realTableName+=DigestUtils.md5Hex(dataSourceEntity.getQuery());
 		}
-		// 3. resolve file column
-//		int size = getSize(data.get(0),splitter);
-////		String[] dataArr = data.subList(0,2).toArray(new String[0]);
-//		String[][] dataArr = new String[2][size];
-		List<ColumnNameType> columnTypes = getColumnType(data.get(0),config.getSplitter());
-		log.info("data: {}",columnTypes);
-		return R.ok().put("columnTypes",columnTypes);
+
+		// 保存DataSourceEntity 到数据库
+
+		dataSourceService.save(dataSourceEntity);
+
+		return R.ok();
 	}
 
-	private List<ColumnNameType> getColumnType(String line, String splitter) {
-		List<ColumnNameType> columnType = new ArrayList<>();
+
+
+	@RequestMapping("/getStructure")
+	@RequiresPermissions("datasource:all")
+	public R getStructure(@RequestBody DataSourceEntity dataSourceEntity) throws Exception{
+		if(dataSourceEntity.getType() == 1) { // 文本
+			// 1. get file
+			String file = redisUtils.get(DigestUtils.md5Hex(
+					ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath()));
+			// 2. read file data
+			List<String> data = FileUtils.readLines(new File(file), Charset.forName("utf-8"));
+			if (data == null || data.size() < 0) {
+				return R.error("empty data!");
+			}
+			// 3. resolve file column
+			List<SimpleColumn> columnTypes = getColumnType(data.get(0), dataSourceEntity.getSplitter());
+			log.info("data: {}", columnTypes);
+			dataSourceEntity.setColumnList(columnTypes);
+			return R.ok().put("dsEntity", dataSourceEntity);
+		}else{// 数据库
+			// TODO 完善数据库获取列描述
+			return R.ok().put("dsEntity",dataSourceEntity);
+		}
+	}
+
+	private List<SimpleColumn> getColumnType(String line, String splitter) {
+		List<SimpleColumn> columnType = new ArrayList<>();
 		String[] data = line.split(splitter,-1);
-		ColumnNameType columnNameType = null;
+		SimpleColumn columnNameType = null;
 		int i=1;
 		for(String d:data){
-			columnNameType = new ColumnNameType();
+			columnNameType = new SimpleColumn();
 			columnNameType.setId(i);
 			columnNameType.setColName("col"+ i++);
 			columnNameType.setColType(getType(d));
@@ -193,14 +222,14 @@ public class DataSourceController {
 	 * @param colVal
 	 * @return
 	 */
-	private String getType(String colVal) {
+	private ColumnType getType(String colVal) {
 		if(NumberUtils.isNumber(colVal)){
 			if(NumberUtils.isDigits(colVal)){
-				return ColumnType.INT.name();
+				return ColumnType.INT;
 			}
-			return ColumnType.DOUBLE.name();
+			return ColumnType.DOUBLE;
 		}
-		return ColumnType.VARCHAR.name();
+		return ColumnType.VARCHAR;
 	}
 
 	/**
@@ -218,16 +247,6 @@ public class DataSourceController {
 		return size;
 	}
 
-	@RequestMapping("/getRDBMSStructure")
-	@RequiresPermissions("datasource:all")
-	public R getRDBMSStructure(@RequestParam String driver,
-							  @RequestParam String url,
-							   @RequestParam String user,
-							   @RequestParam String password,
-							   @RequestParam String sql) throws Exception{
-		//TODO 待实现
-		return R.ok();
-	}
 
 	/**
 	 * 上传文件

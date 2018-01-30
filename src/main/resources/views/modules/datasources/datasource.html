@@ -38,52 +38,71 @@
 			<div class="form-group">
 				<div class="col-sm-2 control-label">数据源类型</div>
 				<label class="radio-inline">
-					<input type="radio" name="type" v-model="config.type" value="1"/> 文本
+					<input type="radio" name="type" v-model="dsEntity.type" value="1"/> 文本
 				</label>
 				<label class="radio-inline">
-					<input type="radio" name="type" v-model="config.type" value="2"/> 数据库
+					<input type="radio" name="type" v-model="dsEntity.type" value="2"/> 数据库
 				</label>
 			</div>
-			<div v-show="config.type == 1">
+			<div v-show="dsEntity.type == 1">
+				<div class="form-group">
+					<div class="col-sm-2 control-label">数据源名称</div>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" v-model="dsEntity.name" placeholder="demo01"/>
+					</div>
+				</div>
 				<div class="form-group">
 					<div class="col-sm-2 control-label">
 						<input type="button"  class="btn btn-primary" id="upload" value="选择文件" />
 					</div>
 					<div class="col-sm-10">
-					  <input type="text" class="form-control" v-model="config.filePath" placeholder="上传文件路径"/>
+					  <input type="text" class="form-control" v-model="dsEntity.filePath" placeholder="上传文件路径"/>
 					</div>
 				</div>
 				<div class="form-group">
 					<div class="col-sm-2 control-label">分隔符</div>
 					<div class="col-sm-10">
-						<input type="text" class="form-control" v-model="config.splitter" placeholder=","/>
+						<input type="text" class="form-control" v-model="dsEntity.splitter" placeholder=","/>
 					</div>
 				</div>
 
 			</div>
-			<div v-show="config.type == 2">
+			<div v-show="dsEntity.type == 2">
+				<div class="form-group">
+					<div class="col-sm-2 control-label">数据源名称</div>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" v-model="dsEntity.name" placeholder="demo01"/>
+					</div>
+				</div>
 				<div class="form-group">
 					<div class="col-sm-2 control-label">Driver</div>
 					<div class="col-sm-10">
-						<input type="text" class="form-control" v-model="config.driver" placeholder="数据库驱动"/>
+						<input type="text" class="form-control" v-model="dsEntity.driver" placeholder="数据库驱动"/>
 					</div>
 				</div>
 				<div class="form-group">
 					<div class="col-sm-2 control-label">URL</div>
 					<div class="col-sm-10">
-						<input type="text" class="form-control" v-model="config.url" placeholder="数据库连接url"/>
+						<input type="text" class="form-control" v-model="dsEntity.url" placeholder="数据库连接url"/>
 					</div>
 				</div>
 				<div class="form-group">
 					<div class="col-sm-2 control-label">用户</div>
 					<div class="col-sm-10">
-						<input type="text" class="form-control" v-model="config.user" placeholder="数据库用户名"/>
+						<input type="text" class="form-control" v-model="dsEntity.user" placeholder="数据库用户名"/>
 					</div>
 				</div>
 				<div class="form-group">
 					<div class="col-sm-2 control-label">密码</div>
 					<div class="col-sm-10">
-						<input type="password" class="form-control" v-model="config.password" placeholder="数据库密码"/>
+						<input type="password" class="form-control" v-model="dsEntity.password" placeholder="数据库密码"/>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<div class="col-sm-2 control-label">查询SQL</div>
+					<div class="col-sm-10">
+						<input type="password" class="form-control" v-model="dsEntity.query" placeholder="select * from table"/>
 					</div>
 				</div>
 
@@ -93,7 +112,7 @@
 				<div class="col-sm-2 control-label"></div>
 				<input type="button" class="btn btn-warning" @click="reload" value="返回"/>
 				&nbsp;&nbsp;
-				<input type="button" class="btn btn-primary fa fa-forward" @click="getFileStructure" value="下一步"/>
+				<input type="button" class="btn btn-primary fa fa-forward" @click="getStructure" value="下一步"/>
 
 			</div>
 		</form>
@@ -103,7 +122,10 @@
 		<div class="grid-btn">
 			<a class="btn btn-danger" @click="getShowListOne"><i class="fa fa-backward"></i>&nbsp;上一步</a>
 			<!--<a class="btn btn-primary" id="upload"><i class="fa fa-plus"></i>&nbsp;上传文件</a>-->
-			<a class="btn btn-primary" @click="saveDataSource"><i class="fa fa-trash-o"></i>&nbsp;保存</a>
+			<a class="btn btn-primary" @click="saveDataSource"><i class="fa fa-floppy-o"></i>&nbsp;保存</a>
+		</div>
+		<div >
+			<small><em>双击一行进行编辑，Enter保存</em> </small>
 		</div>
 		<table id="jqGrid1"></table>
 		<div id="jqGridPager1"></div>

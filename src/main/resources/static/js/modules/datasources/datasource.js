@@ -37,8 +37,8 @@ $(function () {
     $("#jqGrid1").jqGrid({
         colModel: [
             { label: 'ID', name: 'id', width: 100, key:true},
-            { label: '列名', name: 'colName', width: 400, editable:true, edittype:"text"},
-            { label: '列类型', name: 'colType', width: 400,editable:true, edittype:'select',
+            { label: '列名', name: 'colName', width: 450, editable:true, edittype:"text"},
+            { label: '列类型', name: 'colType', width: 450,editable:true, edittype:'select',
                 formatter:'select', editoptions:{value:"VARCHAR:字符串;DOUBLE:小数;INT:整数"}},
         ],
         viewrecords: true, // show the current page, data rang and total records on the toolbar
@@ -57,22 +57,19 @@ $(function () {
                 // $('#jqGridId').jqGrid('restoreRow',lastsel);
                 $('#jqGrid1').jqGrid('editRow',id,{
                     keys : true,        //这里按[enter]保存
-                    // url: s2web.appURL + "jq/save.action",
+                    url : "clientArray",
                     mtype : "POST",
                     restoreAfterError: true,
-                    // extraparam: {
-                    //     "ware.id": rowData.id,
-                    //     "ware.warename": $("#"+id+"_name").val(),
-                    //     "ware.createDate": $("#"+id+"_date").val(),
-                    //     "ware.number": $("#"+id+"_amount").val(),
-                    //     "ware.valid": $("#"+id+"_type").val()
-                    // },
                     oneditfunc: function(rowid){
                         console.log(rowid);
                     },
                     successfunc: function(response){
-                        alert("save success");
+
+                        console.info("save success");
                         return true;
+                    },
+                    aftersavefunc: function (rowid,res) {
+                        // console.info("after save func ,change the columnList");
                     },
                     errorfunc: function(rowid, res){
                         console.log(rowid);
@@ -89,10 +86,6 @@ $(function () {
         autoSubmit:true,
         responseType:"json",
         onSubmit:function(file, extension){
-            // if(vm.config.type == null){
-            //     alert("云存储配置未配置");
-            //     return false;
-            // }
             if (!(extension && /^(txt|csv|dat)$/.test(extension.toLowerCase()))){
                 alert('只支持txt、csv、dat格式的文件！');
                 return false;
@@ -101,7 +94,7 @@ $(function () {
         onComplete : function(file, r){
             if(r.code == 0){
                 // alert(r.name+"上传成功!");
-                vm.config.filePath=r.name;
+                vm.dsEntity.filePath=r.name;
             }else{
                 alert(r.msg);
             }
@@ -115,7 +108,7 @@ var vm = new Vue({
 	data:{
 		showList: 0,
 		title: null,
-        config: {}
+        dsEntity: {}
 	},
     created: function(){
         this.getConfig();
@@ -126,49 +119,31 @@ var vm = new Vue({
 			vm.reload();
 		},
 		getConfig: function () {
-            $.getJSON(baseURL + "datasource/config", function(r){
-				vm.config = r.config;
+            $.getJSON(baseURL + "datasource/initDataSourceEntity", function(r){
+				vm.dsEntity = r.dsEntity;
             });
         },
 		addConfig: function(){
 			vm.showList = 1;
 			vm.title = "数据源配置";
-			vm.config.type=1;
+			vm.dsEntity.type=1;
 
 		},
-		saveOrUpdate: function () {
-			var url = baseURL + "datasource/saveConfig";
-			$.ajax({
-				type: "POST",
-			    url: url,
-                contentType: "application/json",
-			    data: JSON.stringify(vm.config),
-			    success: function(r){
-			    	if(r.code === 0){
-						alert('操作成功', function(){
-							vm.reload();
-						});
-					}else{
-						alert(r.msg);
-					}
-				}
-			});
-		},
-        getFileStructure: function () {
-            var url = baseURL + "datasource/getFileStructure";
+        getStructure: function () {
+            var url = baseURL + "datasource/getStructure";
             $.ajax({
                 type: "POST",
                 url: url,
                 contentType: "application/json",
-                data: JSON.stringify(vm.config),
+                data: JSON.stringify(vm.dsEntity),
                 success: function(r){
                     if(r.code === 0){
                         vm.showList = 2;
                         var gridArrayData = [];
                         // show loading message
                         $("#jqGrid1")[0].grid.beginReq();
-                        for (var i = 0; i < r.columnTypes.length; i++) {
-                            var item = r.columnTypes[i];
+                        for (var i = 0; i < r.dsEntity.columnList.length; i++) {
+                            var item = r.dsEntity.columnList[i];
                             gridArrayData.push({
                                 colName: item.colName,
                                 colType: item.colType,
@@ -192,18 +167,17 @@ var vm = new Vue({
         },
 
         saveDataSource: function () {
-            var url = baseURL + "datasource/getFileStructure";
+            var url = baseURL + "datasource/saveDataSource";
+            // 设置修改后的配置
+            vm.dsEntity.columnList = $('#jqGrid1').jqGrid('getGridParam','data');
             $.ajax({
                 type: "POST",
                 url: url,
                 contentType: "application/json",
-                data: JSON.stringify(vm.config),
+                data: JSON.stringify(vm.dsEntity),
                 success: function(r){
                     if(r.code === 0){
-                        // alert('操作成功', function(){
-                        // vm.reload();
-                        // });
-
+                        alert('数据源保存成功!');
                         vm.showList = 0;
                     }else{
                         alert(r.msg);
