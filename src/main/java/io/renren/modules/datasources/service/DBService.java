@@ -1,7 +1,9 @@
 package io.renren.modules.datasources.service;
 
+import io.renren.modules.datasources.model.DataSourceEntity;
 import io.renren.modules.datasources.model.SimpleColumn;
 
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -15,4 +17,6 @@ public interface DBService {
     public void drop(String table);
 
     public void create(String tableName, List<SimpleColumn> columnList);
+
+    public void insertBatchCSV(DataSourceEntity dataSourceEntity) throws IOException;
 }

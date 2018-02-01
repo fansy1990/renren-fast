@@ -31,7 +31,8 @@ public class DataSourceEntity implements Serializable {
     // 数据库中真实名字，对应一个真实的表
     private String realName;
     // 列描述符
-    @ElementCollection(targetClass = String.class)
+    @ElementCollection(targetClass = SimpleColumn.class)
+    @Lob
     private List<SimpleColumn> columnList;
     //所有者
     private String owner;

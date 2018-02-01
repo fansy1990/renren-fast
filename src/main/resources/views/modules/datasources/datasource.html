@@ -44,13 +44,14 @@
 					<input type="radio" name="type" v-model="dsEntity.type" value="2"/> 数据库
 				</label>
 			</div>
-			<div v-show="dsEntity.type == 1">
-				<div class="form-group">
-					<div class="col-sm-2 control-label">数据源名称</div>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" v-model="dsEntity.name" placeholder="demo01"/>
-					</div>
+			<div class="form-group">
+				<div class="col-sm-2 control-label">数据源名称</div>
+				<div class="col-sm-10">
+					<input type="text" class="form-control" v-model="dsEntity.name" placeholder="demo01" id="dsNameId"/>
 				</div>
+			</div>
+			<div v-show="dsEntity.type == 1">
+
 				<div class="form-group">
 					<div class="col-sm-2 control-label">
 						<input type="button"  class="btn btn-primary" id="upload" value="选择文件" />
@@ -68,12 +69,6 @@
 
 			</div>
 			<div v-show="dsEntity.type == 2">
-				<div class="form-group">
-					<div class="col-sm-2 control-label">数据源名称</div>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" v-model="dsEntity.name" placeholder="demo01"/>
-					</div>
-				</div>
 				<div class="form-group">
 					<div class="col-sm-2 control-label">Driver</div>
 					<div class="col-sm-10">

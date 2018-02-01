@@ -1,12 +1,17 @@
+function customFmatter(cellvalue, options, rowObject){
+    if(cellvalue ==1 ) return "文本";
+    else return "RDBMS";
+}
 $(function () {
+
     $("#jqGrid").jqGrid({
         url: baseURL + 'datasource/list',
         datatype: "json",
         colModel: [			
 			{ label: 'id', name: 'id', width: 20, key: true },
-            { label: '文件名', name: 'name', width: 60 },
-            { label: '文件类型', name: 'dataSourceType', width: 60 },
-			{ label: '创建时间', name: 'createDate', width: 40 }
+            { label: '数据源名称', name: 'name', width: 100 },
+            { label: '数据源类型', name: 'type', width: 80,formatter:customFmatter },
+			{ label: '创建时间', name: 'createDate', width: 80 }
         ],
 		viewrecords: true,
         height: 385,
@@ -90,6 +95,9 @@ $(function () {
                 alert('只支持txt、csv、dat格式的文件！');
                 return false;
             }
+            var dsNameStr= $("#dsNameId").val()
+            console.info(":"+dsNameStr);
+            this.setData({'dsname':dsNameStr});
         },
         onComplete : function(file, r){
             if(r.code == 0){
@@ -178,7 +186,7 @@ var vm = new Vue({
                 success: function(r){
                     if(r.code === 0){
                         alert('数据源保存成功!');
-                        vm.showList = 0;
+                        vm.reload();
                     }else{
                         alert(r.msg);
                     }
@@ -211,6 +219,14 @@ var vm = new Vue({
         },
 		reload: function () {
 			vm.showList = 0;
+			vm.dsEntity.name=null;
+			vm.dsEntity.filePath=null;
+			vm.dsEntity.splitter=null;
+			vm.dsEntity.driver = null;
+			vm.dsEntity.url = null ;
+			vm.dsEntity.password = null ;
+			vm.dsEntity.user = null ;
+			vm.dsEntity.query = null ;
 			var page = $("#jqGrid").jqGrid('getGridParam','page');
 			$("#jqGrid").jqGrid('setGridParam',{ 
                 page:page

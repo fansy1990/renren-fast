@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.*;
 
@@ -101,8 +102,9 @@ public class DataSourceController {
 		DataSourceEntity dataSourceEntity = null ;
 		for(Long dataSourceId : dataSourceIds) {
 			dataSourceEntity = dataSourceService.queryObject(dataSourceId);
-			// 删除文件
-			FileUtils.deleteQuietly(new File(dataSourceEntity.getRealName()));
+			// 1. 删除实际数据
+			dbService.drop(dataSourceEntity.getRealName());
+			// 2. 删除数据源记录
 			dataSourceService.delete(dataSourceId);
 		}
 		return R.ok();
@@ -151,26 +153,30 @@ public class DataSourceController {
 
 	@RequestMapping("/saveDataSource")
 	@RequiresPermissions("datasource:all")
-	public R saveDataSource(@RequestBody DataSourceEntity dataSourceEntity){
+	public R saveDataSource(@RequestBody DataSourceEntity dataSourceEntity) throws IOException {
 		String realTableName = dataSourceEntity.getOwner()+"_";
 
 		if(dataSourceEntity.getType() == 1){// 文本
 			log.info("保存文本数据源：");
-			realTableName+= DigestUtils.md5Hex(dataSourceEntity.getFilePath());
-			String realFilePath = redisUtils.get(DigestUtils.md5Hex(
-					ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath()));
+			realTableName+= DigestUtils.md5Hex(dataSourceEntity.getFilePath()
+					+dataSourceEntity.getName());
+			dataSourceEntity.setRealName(realTableName);
+
 			// 1. 创建表
 			dbService.create(realTableName,dataSourceEntity.getColumnList());
 
 			// 2. 导入数据
 			log.info("importing data ...");
+			dbService.insertBatchCSV(dataSourceEntity);
 
 		}else{
 			log.info("保存RDBMS数据源：");
 			realTableName+=DigestUtils.md5Hex(dataSourceEntity.getQuery());
+			dataSourceEntity.setRealName(realTableName);
 		}
 
 		// 保存DataSourceEntity 到数据库
+		dataSourceEntity.setCreateDate(new Date());
 
 		dataSourceService.save(dataSourceEntity);
 
@@ -253,28 +259,20 @@ public class DataSourceController {
 	 */
 	@RequestMapping("/upload")
 	@RequiresPermissions("datasource:all")
-	public R upload(@RequestParam("file") MultipartFile file) throws Exception {
+	public R upload(@RequestParam("file") MultipartFile file,@RequestParam("dsname") String dsname ) throws Exception {
 		if (file.isEmpty()) {
 			throw new RRException("上传文件不能为空");
 		}
-
+		log.info("name:"+dsname);
 		//上传文件
 		String suffix = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
 		File dest = new File(uploadDir+File.separator
-				+DigestUtils.md5Hex(UUID.randomUUID().toString()) +suffix);
+				+DigestUtils.md5Hex(UUID.randomUUID().toString()) +suffix+dsname);
 		file.transferTo(dest);
 		//保存文件信息
-//		DataSourceEntity dataSourceEntity = new DataSourceEntity();
-//		dataSourceEntity.setName(file.getOriginalFilename());
-//		dataSourceEntity.setOwner(ShiroUtils.getUserEntity().getUsername());
-//		dest.getAbsolutePath();
-//		dataSourceEntity.setRealName(dest.getAbsolutePath());
-//		dataSourceEntity.setCreateDate(new Date());
-//		dataSourceEntity.setDataSourceType(DataSourceType.FILE);
-//		dataSourceService.save(dataSourceEntity);
 		// 保存信息到Redis
 		redisUtils.set(DigestUtils.md5Hex(
-				ShiroUtils.getUserEntity().getUserId()+file.getOriginalFilename()),dest.getAbsolutePath());
+				ShiroUtils.getUserEntity().getUserId()+file.getOriginalFilename()+dsname),dest.getAbsolutePath());
 
 		return R.ok().put("name", file.getOriginalFilename());
 	}
