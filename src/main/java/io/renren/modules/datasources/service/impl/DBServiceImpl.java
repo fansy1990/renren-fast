@@ -29,49 +29,53 @@ import java.util.List;
 @Service("dbService")
 public class DBServiceImpl implements DBService {
     private static Logger log = LoggerFactory.getLogger(DBServiceImpl.class);
+    private static String COMMA = ",";
     @Autowired
     private JdbcTemplate jdbcTemplate;
     @Autowired
     private RedisUtils redisUtils;
+
     @Override
     public void execute(String sql) {
-        log.info("SQL:\n{}",sql);
+        log.info("SQL:\n{}", sql);
         jdbcTemplate.execute(sql);
     }
 
     @Override
     public void drop(String table) {
-        execute("drop table  if exists "+table );
+        execute("drop table  if exists " + table);
     }
 
     @Override
     public void create(String tableName, List<SimpleColumn> columnList) {
         drop(tableName);// 先删除
-        execute(constructSQL(tableName,columnList));
+        execute(constructSQL(tableName, columnList));
 
     }
 
+
     @Override
-    public void insertBatchCSV(DataSourceEntity dataSourceEntity) throws IOException {
+    public void insertBatch(DataSourceEntity dataSourceEntity) throws IOException {
         // 1. prepare sql
-        StringBuilder sql =new StringBuilder();
-        sql.append(" insert into "+ dataSourceEntity.getRealName()+"(");
-        for(SimpleColumn column: dataSourceEntity.getColumnList()){
+        StringBuilder sql = new StringBuilder();
+        sql.append(" insert into " + dataSourceEntity.getRealName() + "(");
+        for (SimpleColumn column : dataSourceEntity.getColumnList()) {
             sql.append(column.getColName()).append(",");
         }
-        sql.deleteCharAt(sql.length()-1);
+        sql.deleteCharAt(sql.length() - 1);
         sql.append(" ) values( ");
-        for(int i =0 ;i< dataSourceEntity.getColumnList().size();i++){
+        for (int i = 0; i < dataSourceEntity.getColumnList().size(); i++) {
             sql.append("?").append(",");
         }
-        sql.deleteCharAt(sql.length()-1);
+        sql.deleteCharAt(sql.length() - 1);
         sql.append(")");
+
+
         // 2. prepare data
-        String realFilePath = redisUtils.get(DigestUtils.md5Hex(
-                ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath()+
-        dataSourceEntity.getName()));
-        final List<String> lines = FileUtils.readLines(new File(realFilePath), Charset.forName("utf-8"));
-        final String splitter = dataSourceEntity.getSplitter();
+
+        final List<String> lines = getLines(dataSourceEntity);
+        final String splitter = getSplitter(dataSourceEntity);
+
         final List<SimpleColumn> columnList = dataSourceEntity.getColumnList();
         // 3. import data
         jdbcTemplate.batchUpdate(sql.toString(), new BatchPreparedStatementSetter() {
@@ -79,32 +83,29 @@ public class DBServiceImpl implements DBService {
             @Override
             public void setValues(PreparedStatement ps, int i) throws SQLException {
                 String line = lines.get(i);
-                if(line == null || line.length() < 1){
-                    return ;
+                if (line == null || line.length() < 1) {
+                    return;
                 }
-                String[] lineData= line.split(splitter,-1);
-                for(int j=0 ;j < lineData.length;j++){
-                    setData(j+1,ps,lineData[j],columnList.get(j));
+                String[] lineData = line.split(splitter, -1);
+                for (int j = 0; j < lineData.length; j++) {
+                    setData(j + 1, ps, lineData[j], columnList.get(j));
                 }
-//                ps.setLong(1, customer.getCustId());
-//                ps.setString(2, customer.getName());
-//                ps.setInt(3, customer.getAge() );
             }
 
-            private void setData(int j,PreparedStatement ps, String lineDatum, SimpleColumn simpleColumn) throws SQLException {
-                switch (simpleColumn.getColType()){
+            private void setData(int j, PreparedStatement ps, String lineDatum, SimpleColumn simpleColumn) throws SQLException {
+                switch (simpleColumn.getColType()) {
                     case VARCHAR:
-                        ps.setString(j,lineDatum);
+                        ps.setString(j, lineDatum);
                         break;
                     case DOUBLE:
-                        ps.setDouble(j,Double.parseDouble(lineDatum));
+                        ps.setDouble(j, Double.parseDouble(lineDatum));
                         break;
                     case INT:
-                        ps.setInt(j,Integer.parseInt(lineDatum));
+                        ps.setInt(j, Integer.parseInt(lineDatum));
                         break;
                     default:
                         log.error("column:{} with wrong column type:{}",
-                                new Object[]{simpleColumn.getColName(),simpleColumn.getColType()});
+                                new Object[]{simpleColumn.getColName(), simpleColumn.getColType()});
                 }
             }
 
@@ -114,11 +115,51 @@ public class DBServiceImpl implements DBService {
             }
         });
         // 4. delete file
-        FileUtils.deleteQuietly(new File(realFilePath));
+        if(dataSourceEntity.getType() == 1) {// 文本删除临时文件
+            String realFilePath = redisUtils.get(DigestUtils.md5Hex(
+                    ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath() +
+                            dataSourceEntity.getName()));
+            FileUtils.deleteQuietly(new File(realFilePath));
+        }
+
     }
 
     /**
+     * 获取分隔符
+     * @param dataSourceEntity
+     * @return
+     */
+    private String getSplitter(DataSourceEntity dataSourceEntity) {
+        if(dataSourceEntity.getType()==1){
+            return dataSourceEntity.getSplitter();
+        }
+        return COMMA;// 否则的话返回逗号分隔符
+    }
+
+    /**
+     * 获取数据，使用分隔符进行分割
+     * @param dataSourceEntity
+     * @return
+     * @throws IOException
+     */
+    private List<String> getLines(DataSourceEntity dataSourceEntity) throws IOException{
+        if(dataSourceEntity.getType() == 1) {
+            String realFilePath = redisUtils.get(DigestUtils.md5Hex(
+                    ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath() +
+                            dataSourceEntity.getName()));
+            List<String> lines = FileUtils.readLines(new File(realFilePath), Charset.forName("utf-8"));
+            return lines;
+        }else{
+            //TODO 完善数据源；
+            return null;
+        }
+
+    }
+
+
+    /**
      * 创建表SQL
+     *
      * @param realTableName
      * @param columnList
      * @return
@@ -129,8 +170,8 @@ public class DBServiceImpl implements DBService {
 
         builder.append(" create table ").append(realTableName).append(" ").append("( ");
 
-        for(SimpleColumn column:columnList){
-            switch (column.getColType()){
+        for (SimpleColumn column : columnList) {
+            switch (column.getColType()) {
                 case DOUBLE:
                     builder.append(" ").append(column.getColName()).append(" ").append("double(16,2) ,");
                     break;
@@ -141,10 +182,10 @@ public class DBServiceImpl implements DBService {
                     builder.append(" ").append(column.getColName()).append(" ").append("varchar(255) ,");
                     break;
                 default:
-                    log.error("错误的类型：{}",column);
+                    log.error("错误的类型：{}", column);
             }
         }
-        builder.deleteCharAt(builder.length()-1);// 去掉最后一个逗号
+        builder.deleteCharAt(builder.length() - 1);// 去掉最后一个逗号
         builder.append(" )");
         return builder.toString();
     }

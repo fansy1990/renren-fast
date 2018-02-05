@@ -18,5 +18,9 @@ public interface DBService {
 
     public void create(String tableName, List<SimpleColumn> columnList);
 
-    public void insertBatchCSV(DataSourceEntity dataSourceEntity) throws IOException;
+//    public void insertBatchCSV(DataSourceEntity dataSourceEntity) throws IOException;
+//
+//    public void insertBatchRDMBS(DataSourceEntity dataSourceEntity) throws Exception;
+
+    void insertBatch(DataSourceEntity dataSourceEntity) throws Exception;
 }

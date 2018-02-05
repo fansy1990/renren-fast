@@ -23,7 +23,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.sql.*;
 import java.util.*;
+import java.util.Date;
 
 
 /**
@@ -153,7 +155,7 @@ public class DataSourceController {
 
 	@RequestMapping("/saveDataSource")
 	@RequiresPermissions("datasource:all")
-	public R saveDataSource(@RequestBody DataSourceEntity dataSourceEntity) throws IOException {
+	public R saveDataSource(@RequestBody DataSourceEntity dataSourceEntity) throws Exception {
 		String realTableName = dataSourceEntity.getOwner()+"_";
 
 		if(dataSourceEntity.getType() == 1){// 文本
@@ -161,19 +163,19 @@ public class DataSourceController {
 			realTableName+= DigestUtils.md5Hex(dataSourceEntity.getFilePath()
 					+dataSourceEntity.getName());
 			dataSourceEntity.setRealName(realTableName);
-
-			// 1. 创建表
-			dbService.create(realTableName,dataSourceEntity.getColumnList());
-
-			// 2. 导入数据
-			log.info("importing data ...");
-			dbService.insertBatchCSV(dataSourceEntity);
+			log.info("importing data from text ...");
 
 		}else{
 			log.info("保存RDBMS数据源：");
 			realTableName+=DigestUtils.md5Hex(dataSourceEntity.getQuery());
 			dataSourceEntity.setRealName(realTableName);
+			log.info("importing data from rdbms ... ");
+			// 1. 创建表
 		}
+		// 1. 创建表
+		dbService.create(realTableName,dataSourceEntity.getColumnList());
+
+		dbService.insertBatch(dataSourceEntity);
 
 		// 保存DataSourceEntity 到数据库
 		dataSourceEntity.setCreateDate(new Date());
@@ -188,23 +190,91 @@ public class DataSourceController {
 	@RequestMapping("/getStructure")
 	@RequiresPermissions("datasource:all")
 	public R getStructure(@RequestBody DataSourceEntity dataSourceEntity) throws Exception{
+		DataSourceEntity dsEntity = dataSourceService.findByNameAndOwner(dataSourceEntity.getName(),
+				dataSourceEntity.getOwner());
+		if(dsEntity != null){
+			return R.error("请重新定义数据源名,数据源名重复!");
+		}
+
+
+		List<SimpleColumn> columnTypes = new ArrayList<>();
 		if(dataSourceEntity.getType() == 1) { // 文本
 			// 1. get file
 			String file = redisUtils.get(DigestUtils.md5Hex(
-					ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath()));
+					ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath()+
+							dataSourceEntity.getName()));
 			// 2. read file data
+			if(file == null){
+				return R.error("修改数据源名称后，需要重新上传数据");
+			}
 			List<String> data = FileUtils.readLines(new File(file), Charset.forName("utf-8"));
 			if (data == null || data.size() < 0) {
 				return R.error("empty data!");
 			}
 			// 3. resolve file column
-			List<SimpleColumn> columnTypes = getColumnType(data.get(0), dataSourceEntity.getSplitter());
+			columnTypes = getColumnType(data.get(0), dataSourceEntity.getSplitter());
 			log.info("data: {}", columnTypes);
 			dataSourceEntity.setColumnList(columnTypes);
 			return R.ok().put("dsEntity", dataSourceEntity);
 		}else{// 数据库
 			// TODO 完善数据库获取列描述
+
+			Connection conn = null ;
+
+			try{
+				Class.forName(dataSourceEntity.getDriver()) ;
+				conn = DriverManager.getConnection(dataSourceEntity.getUrl(),
+						dataSourceEntity.getUser(), dataSourceEntity.getPassword()) ;
+			}catch(Exception e){
+//				e.printStackTrace();
+				log.warn("数据库连接异常：{}",e.getMessage());
+			}
+			if(conn == null){
+				return R.error("数据库连接失败，请检查!");
+			}
+
+			PreparedStatement stmt = null;
+
+			try {
+				stmt = conn.prepareStatement(dataSourceEntity.getQuery());
+				ResultSet rs = stmt.executeQuery(dataSourceEntity.getQuery());
+				ResultSetMetaData data = rs.getMetaData();
+				SimpleColumn simpleColumn = null;
+				while(rs.next()){
+					for(int i=1;i<= data.getColumnCount();i++){
+						simpleColumn = new SimpleColumn();
+						simpleColumn.setId(i);
+						simpleColumn.setColName(data.getColumnName(i));
+						simpleColumn.setColType(getColumnType(data.getColumnTypeName(i)));
+						// TODO add column length
+						columnTypes.add(simpleColumn);
+					}
+					break;
+				}
+
+			}catch (Exception e){
+				log.warn("获取查询:{},列结构异常!",dataSourceEntity.getQuery());
+				return R.error("获取列结构异常!");
+			}finally{
+				if(stmt != null){
+					stmt.close();
+				}
+				if(conn != null){
+					conn.close();
+				}
+			}
+			dataSourceEntity.setColumnList(columnTypes);
 			return R.ok().put("dsEntity",dataSourceEntity);
+		}
+	}
+
+	private ColumnType getColumnType(String colType){
+		colType = colType.trim().toLowerCase();
+		switch (colType){
+			case "int"  : return ColumnType.INT;
+			case "double" :
+			case "float": return ColumnType.DOUBLE;
+			default: return ColumnType.VARCHAR;
 		}
 	}
 
@@ -267,7 +337,7 @@ public class DataSourceController {
 		//上传文件
 		String suffix = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
 		File dest = new File(uploadDir+File.separator
-				+DigestUtils.md5Hex(UUID.randomUUID().toString()) +suffix+dsname);
+				+DigestUtils.md5Hex(UUID.randomUUID().toString()+dsname) +suffix);
 		file.transferTo(dest);
 		//保存文件信息
 		// 保存信息到Redis

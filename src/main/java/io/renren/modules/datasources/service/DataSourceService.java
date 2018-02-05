@@ -14,8 +14,11 @@ import java.util.Map;
  */
 public interface DataSourceService {
 	
-	DataSourceEntity queryObject(Long goodsId);
-	
+	DataSourceEntity queryObject(Long id);
+	DataSourceEntity queryObject(String name);
+
+	DataSourceEntity findByNameAndOwner(String name,String owner);
+
 	List<DataSourceEntity> queryList(Map<String, Object> map);
 	
 	int queryTotal(Map<String, Object> map);

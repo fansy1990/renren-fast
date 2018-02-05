@@ -159,6 +159,7 @@ var vm = new Vue({
                             });
                         }
                         // set the new data
+                        $("#jqGrid1").jqGrid('clearGridData');// clear data
                         $("#jqGrid1").jqGrid('setGridParam', { data: gridArrayData});
                         // hide the show message
                         $("#jqGrid1")[0].grid.endReq();
@@ -227,6 +228,7 @@ var vm = new Vue({
 			vm.dsEntity.password = null ;
 			vm.dsEntity.user = null ;
 			vm.dsEntity.query = null ;
+			vm.dsEntity.columnList = null ;
 			var page = $("#jqGrid").jqGrid('getGridParam','page');
 			$("#jqGrid").jqGrid('setGridParam',{ 
                 page:page

@@ -25,7 +25,17 @@ public class DataSourceImpl implements DataSourceService {
 	public DataSourceEntity queryObject(Long dataSourceId){
 		return dataSourceReposity.findById(dataSourceId);
 	}
-	
+
+
+	public DataSourceEntity queryObject(String name){
+		return dataSourceReposity.findByName(name);
+	}
+
+	@Override
+	public DataSourceEntity findByNameAndOwner(String name, String owner) {
+		return dataSourceReposity.findByNameAndOwner(name,owner);
+	}
+
 	@Override
 	public List<DataSourceEntity> queryList(Map<String, Object> map){
 		String sidx = (String)map.get("sidx");

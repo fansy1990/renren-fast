@@ -15,6 +15,10 @@ public interface DataSourceReposity extends JpaRepository<DataSourceEntity, Long
 
     List<DataSourceEntity> findAll();
 
+    DataSourceEntity findByName(String name);
+
+    DataSourceEntity findByNameAndOwner(String name, String owner);
+
 
     //    @Query("select goods from GoodsEntity order by ?1 ?2")
 //    List<GoodsEntity> findAllOrderBy(String col,String order);

@@ -12,6 +12,16 @@ public class SimpleColumn implements Serializable {
     private String colName;
     private ColumnType colType;
 
+    public int getColLength() {
+        return colLength;
+    }
+
+    public void setColLength(int colLength) {
+        this.colLength = colLength;
+    }
+
+    private int colLength;
+
     public ColumnType getColType() {
         return colType;
     }
