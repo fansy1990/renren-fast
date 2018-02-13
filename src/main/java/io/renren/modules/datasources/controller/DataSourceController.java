@@ -217,27 +217,18 @@ public class DataSourceController {
 			dataSourceEntity.setColumnList(columnTypes);
 			return R.ok().put("dsEntity", dataSourceEntity);
 		}else{// 数据库
-			// TODO 完善数据库获取列描述
+			//
 
-			Connection conn = null ;
-
-			try{
-				Class.forName(dataSourceEntity.getDriver()) ;
-				conn = DriverManager.getConnection(dataSourceEntity.getUrl(),
-						dataSourceEntity.getUser(), dataSourceEntity.getPassword()) ;
-			}catch(Exception e){
-//				e.printStackTrace();
-				log.warn("数据库连接异常：{}",e.getMessage());
-			}
-			if(conn == null){
-				return R.error("数据库连接失败，请检查!");
+			Connection conn = DBUtils.getConn(dataSourceEntity);
+			if(conn == null) {
+				return R.error("数据库连接异常，请检查!");
 			}
 
 			PreparedStatement stmt = null;
-
+			ResultSet rs =null ;
 			try {
 				stmt = conn.prepareStatement(dataSourceEntity.getQuery());
-				ResultSet rs = stmt.executeQuery(dataSourceEntity.getQuery());
+				rs = stmt.executeQuery(dataSourceEntity.getQuery());
 				ResultSetMetaData data = rs.getMetaData();
 				SimpleColumn simpleColumn = null;
 				while(rs.next()){
@@ -256,6 +247,9 @@ public class DataSourceController {
 				log.warn("获取查询:{},列结构异常!",dataSourceEntity.getQuery());
 				return R.error("获取列结构异常!");
 			}finally{
+				if(rs!=null){
+					rs.close();
+				}
 				if(stmt != null){
 					stmt.close();
 				}

@@ -1,5 +1,6 @@
 package io.renren.modules.datasources.service;
 
+import io.renren.common.utils.R;
 import io.renren.modules.datasources.model.DataSourceEntity;
 import io.renren.modules.datasources.model.SimpleColumn;
 

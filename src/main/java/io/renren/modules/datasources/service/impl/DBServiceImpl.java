@@ -1,5 +1,7 @@
 package io.renren.modules.datasources.service.impl;
 
+import io.renren.common.utils.DBUtils;
+import io.renren.common.utils.R;
 import io.renren.common.utils.RedisUtils;
 import io.renren.common.utils.ShiroUtils;
 import io.renren.modules.datasources.model.DataSourceEntity;
@@ -17,8 +19,8 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -55,7 +57,7 @@ public class DBServiceImpl implements DBService {
 
 
     @Override
-    public void insertBatch(DataSourceEntity dataSourceEntity) throws IOException {
+    public void insertBatch(DataSourceEntity dataSourceEntity) throws Exception {
         // 1. prepare sql
         StringBuilder sql = new StringBuilder();
         sql.append(" insert into " + dataSourceEntity.getRealName() + "(");
@@ -74,6 +76,7 @@ public class DBServiceImpl implements DBService {
         // 2. prepare data
 
         final List<String> lines = getLines(dataSourceEntity);
+
         final String splitter = getSplitter(dataSourceEntity);
 
         final List<SimpleColumn> columnList = dataSourceEntity.getColumnList();
@@ -133,7 +136,7 @@ public class DBServiceImpl implements DBService {
         if(dataSourceEntity.getType()==1){
             return dataSourceEntity.getSplitter();
         }
-        return COMMA;// 否则的话返回逗号分隔符
+        return COMMA;// RDBMS数据源，则返回逗号分隔符
     }
 
     /**
@@ -142,7 +145,7 @@ public class DBServiceImpl implements DBService {
      * @return
      * @throws IOException
      */
-    private List<String> getLines(DataSourceEntity dataSourceEntity) throws IOException{
+    private List<String> getLines(DataSourceEntity dataSourceEntity) throws Exception {
         if(dataSourceEntity.getType() == 1) {
             String realFilePath = redisUtils.get(DigestUtils.md5Hex(
                     ShiroUtils.getUserEntity().getUserId() + dataSourceEntity.getFilePath() +
@@ -150,8 +153,45 @@ public class DBServiceImpl implements DBService {
             List<String> lines = FileUtils.readLines(new File(realFilePath), Charset.forName("utf-8"));
             return lines;
         }else{
-            //TODO 完善数据源；
-            return null;
+            //RDBMS 数据源
+            Connection conn = DBUtils.getConn(dataSourceEntity);
+            if(conn == null) {
+                throw new SQLException("数据库连接异常，请检查!");
+            }
+
+            PreparedStatement stmt = null;
+            ResultSet rs =null ;
+            List<String> lines = new ArrayList<>();
+            try {
+                stmt = conn.prepareStatement(dataSourceEntity.getQuery());
+                rs = stmt.executeQuery(dataSourceEntity.getQuery());
+                ResultSetMetaData data = rs.getMetaData();
+//                final int columnSize = data.getColumnCount();
+                StringBuilder builder = null;
+                while(rs.next()){
+                     builder = new StringBuilder();
+                    for(int i=1;i< data.getColumnCount();i++){
+                        builder.append(rs.getObject(i).toString()).append(COMMA);
+                    }
+                    lines.add(builder.toString()+
+                            rs.getObject(data.getColumnCount()).toString());
+                }
+
+            }catch (Exception e){
+                log.warn("获取查询:{},数据异常!",dataSourceEntity.getQuery());
+                throw new SQLException("获取列结构异常!");
+            }finally{
+                if(rs!=null){
+                    rs.close();
+                }
+                if(stmt != null){
+                    stmt.close();
+                }
+                if(conn != null){
+                    conn.close();
+                }
+            }
+            return lines;
         }
 
     }
